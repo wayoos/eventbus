@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -78,6 +79,31 @@ public class ChannelTest {
 
         await().atMost(2, SECONDS).until(() -> inputMessages.size() == processedMessages.size());
         assertEquals(inputMessages, processedMessages);
+    }
+
+    @Test
+    public void perfChannelTest() throws Exception {
+        Channel<String> channel = eventbus.createChannel("perf", String.class);
+
+        final AtomicLong syncCount = new AtomicLong();
+        final AtomicLong asyncCount = new AtomicLong();
+        final AtomicLong serialCount = new AtomicLong();
+
+        channel.register(m -> syncCount.incrementAndGet(), RegisterType.SYNC);
+        channel.register(m -> asyncCount.incrementAndGet(), RegisterType.ASYNC);
+        channel.register(m -> serialCount.incrementAndGet(), RegisterType.ASYNC_SERIAL);
+
+        // init input test messages
+        final long nb = 1000l;
+        for (int i = 1; i <= nb; i++) {
+            channel.post(String.valueOf(i));
+        }
+
+        await().atMost(10, SECONDS).until(() -> nb == serialCount.get());
+
+        assertEquals(nb, syncCount.get());
+        assertEquals(nb, asyncCount.get());
+        assertEquals(nb, serialCount.get());
     }
 
 

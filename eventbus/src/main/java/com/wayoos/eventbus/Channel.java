@@ -7,6 +7,7 @@ import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -19,18 +20,23 @@ public class Channel<T> {
 
     private final static Logger logger = LoggerFactory.getLogger(Channel.class);
 
-    Set<Consumer> syncConsumers = new HashSet<>();
-    Set<Consumer> aSyncConsumers = new HashSet<>();
-    Set<Consumer> aSyncSequentialConsumers = new HashSet<>();
+    Set<Consumer> syncConsumers = new ConcurrentSkipListSet<>();
+    Set<Consumer> aSyncConsumers = new ConcurrentSkipListSet<>();
+    Set<Consumer> aSyncSequentialConsumers = new ConcurrentSkipListSet<>();
 
-    ExecutorService executorService = Executors.newCachedThreadPool();
+    final Executor executorService;
 
-    SerialExecutor serialExecutor = new SerialExecutor(executorService);
+    final SerialExecutor serialExecutor;
+
+    private final EventbusExecutorFactory eventbusExecutorFactory;
 
     private final Class<T> messageType;
 
-    public Channel(Class<T> messageType) {
+    public Channel(EventbusExecutorFactory eventbusExecutorFactory, Class<T> messageType) {
+        this.eventbusExecutorFactory = eventbusExecutorFactory;
         this.messageType = messageType;
+        executorService = eventbusExecutorFactory.getExecutor();
+        serialExecutor = new SerialExecutor(executorService);
     }
 
     public Class<T> messageType() {
