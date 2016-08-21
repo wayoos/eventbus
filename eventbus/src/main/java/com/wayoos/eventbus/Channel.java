@@ -55,34 +55,29 @@ public class Channel<T> {
 
     }
 
+    /**
+     * Post a message in the channel
+     * @param message
+     */
     public void post(final T message) {
-        syncConsumers.forEach(c -> processSyncMessage(c, message));
+        // check message type
+        if (!messageType().equals(message.getClass()))
+            throw new IllegalArgumentException("Invalid message type");
 
-        aSyncConsumers.forEach(c -> {
-            executorService.execute(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            logger.debug("Send async message {} to consumer {}", message, c);
-                            c.accept(message);
+        syncConsumers.forEach(c -> processMessage(RegisterType.SYNC, c, message));
 
-                        }
-                    }
-            );
-        });
+        aSyncConsumers.forEach(c -> executorService.execute(() -> processMessage(RegisterType.ASYNC, c, message)));
 
-        aSyncSequentialConsumers.forEach(c -> {
-            serialExecutor.execute(() -> {
-                logger.debug("Send async serial message {} to consumer {}", message, c);
-                c.accept(message);
-            });
-        });
-
+        aSyncSequentialConsumers.forEach(c -> serialExecutor.execute(() -> processMessage(RegisterType.ASYNC_SERIAL, c, message)));
     }
 
-    private void processSyncMessage(Consumer c, T message) {
-        logger.debug("Send sync message {} to consumer {}", message, c);
-        c.accept(message);
+    private void processMessage(RegisterType registerType, Consumer c, T message) {
+        logger.debug("Before {} message {} is accept by consumer {}", registerType, message, c);
+        try {
+            c.accept(message);
+        } catch (Throwable e) {
+            logger.error("Consumer accept message error.", e);
+        }
     }
 
     private void addSync(Consumer<T> consumer) {

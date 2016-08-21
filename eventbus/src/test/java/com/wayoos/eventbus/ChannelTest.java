@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
@@ -61,14 +62,36 @@ public class ChannelTest {
         assertEquals(inputMessages, processedMessages);
     }
 
-    private void test(RegisterType registerType, List<String> inputMessages, List<String> processedMessages) {
-        Channel<String> channel = eventbus.createChannel("Test", String.class);
+    @Test
+    public void getChannelAsyncSecWithAcceptError() throws Exception {
+        List<String> inputMessages = createMessages(20);
+        final List<String> processedMessages = Collections.synchronizedList(new ArrayList<>());
 
-        channel.register(s -> processedMessages.add(s), registerType);
+        test(RegisterType.ASYNC_SERIAL, inputMessages, m -> {
+            if (m.endsWith("0"))
+                throw new RuntimeException("Error processing");
+            processedMessages.add(m);
+        });
 
-        inputMessages.forEach(msg -> channel.post(msg));
+        inputMessages.remove("msg10");
+        inputMessages.remove("msg20");
 
         await().atMost(2, SECONDS).until(() -> inputMessages.size() == processedMessages.size());
+        assertEquals(inputMessages, processedMessages);
+    }
+
+
+    private void test(RegisterType registerType, List<String> inputMessages, List<String> processedMessages) {
+        test(registerType, inputMessages, s -> processedMessages.add(s));
+        await().atMost(2, SECONDS).until(() -> inputMessages.size() == processedMessages.size());
+    }
+
+    private void test(RegisterType registerType, List<String> inputMessages, Consumer<String> consumer) {
+        Channel<String> channel = eventbus.createChannel("Test", String.class);
+
+        channel.register(consumer, registerType);
+
+        inputMessages.forEach(msg -> channel.post(msg));
     }
 
     private static List<String> createMessages(int nb) {
