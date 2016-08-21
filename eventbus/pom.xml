@@ -6,7 +6,7 @@
         <version>0.1-SNAPSHOT</version>
     </parent>
     <groupId>com.wayoos.eventbus</groupId>
-    <artifactId>eventbus-api</artifactId>
+    <artifactId>eventbus</artifactId>
 
     <dependencies>
         <dependency>

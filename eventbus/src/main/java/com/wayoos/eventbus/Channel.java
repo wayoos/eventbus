@@ -27,6 +27,16 @@ public class Channel<T> {
 
     SerialExecutor serialExecutor = new SerialExecutor(executorService);
 
+    private final Class<T> messageType;
+
+    public Channel(Class<T> messageType) {
+        this.messageType = messageType;
+    }
+
+    public Class<T> messageType() {
+        return messageType;
+    }
+
     public void register(Consumer<T> consumer, RegisterType registerType) {
         switch (registerType) {
             case SYNC:

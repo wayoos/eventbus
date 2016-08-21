@@ -16,7 +16,7 @@ import static org.junit.Assert.assertEquals;
 /**
  * Created by steph on 21.08.16.
  */
-public class EventbusTest {
+public class ChannelTest {
 
     Eventbus eventbus;
 
@@ -62,7 +62,7 @@ public class EventbusTest {
     }
 
     private void test(RegisterType registerType, List<String> inputMessages, List<String> processedMessages) {
-        Channel<String> channel = eventbus.getChannel("Test", String.class);
+        Channel<String> channel = eventbus.createChannel("Test", String.class);
 
         channel.register(s -> processedMessages.add(s), registerType);
 
