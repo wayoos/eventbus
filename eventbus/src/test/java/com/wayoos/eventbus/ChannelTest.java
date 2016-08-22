@@ -8,6 +8,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -21,15 +24,17 @@ import static org.junit.Assert.assertEquals;
 public class ChannelTest {
 
     Eventbus eventbus;
+    ExecutorService executorService;
 
     @Before
     public void beforeTest() {
-        eventbus = new Eventbus();
+        executorService = Executors.newCachedThreadPool();
+        eventbus = new Eventbus(() -> executorService);
     }
 
     @After
     public void afterTest() {
-        // TODO call shutdown
+        executorService.shutdown();
         eventbus = null;
     }
 
@@ -66,7 +71,7 @@ public class ChannelTest {
     @Test
     public void getChannelAsyncSecWithAcceptError() throws Exception {
         List<String> inputMessages = createMessages(20);
-        final List<String> processedMessages = Collections.synchronizedList(new ArrayList<>());
+        List<String> processedMessages = Collections.synchronizedList(new ArrayList<>());
 
         test(RegisterType.ASYNC_SERIAL, inputMessages, m -> {
             if (m.endsWith("0"))
@@ -106,6 +111,40 @@ public class ChannelTest {
         assertEquals(nb, serialCount.get());
     }
 
+    @Test
+    public void perfChannelMultipleSubscriberTest() throws Exception {
+        Channel<String> channel = eventbus.createChannel("perf", String.class);
+
+        final AtomicLong syncCount = new AtomicLong();
+        final AtomicLong asyncCount = new AtomicLong();
+        final AtomicLong serialCount1 = new AtomicLong();
+        final AtomicLong serialCount2 = new AtomicLong();
+        final AtomicLong serialCount3 = new AtomicLong();
+
+        channel.register(m -> syncCount.incrementAndGet(), RegisterType.SYNC);
+        channel.register(m -> asyncCount.incrementAndGet(), RegisterType.ASYNC);
+        channel.register(m -> serialCount1.incrementAndGet(), RegisterType.ASYNC_SERIAL);
+        channel.register(m -> serialCount2.incrementAndGet(), RegisterType.ASYNC_SERIAL);
+        channel.register(m -> {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, RegisterType.ASYNC_SERIAL);
+
+        // init input test messages
+        final long nb = 1000l;
+        for (int i = 1; i <= nb; i++) {
+            channel.post(String.valueOf(i));
+        }
+
+        await().atMost(10, SECONDS).until(() -> nb == serialCount1.get());
+
+        assertEquals(nb, syncCount.get());
+        assertEquals(nb, asyncCount.get());
+        assertEquals(nb, serialCount1.get());
+    }
 
     private void test(RegisterType registerType, List<String> inputMessages, List<String> processedMessages) {
         test(registerType, inputMessages, s -> processedMessages.add(s));

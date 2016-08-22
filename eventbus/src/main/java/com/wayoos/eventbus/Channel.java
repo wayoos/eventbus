@@ -3,10 +3,7 @@ package com.wayoos.eventbus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayDeque;
-import java.util.HashSet;
-import java.util.Queue;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -20,13 +17,11 @@ public class Channel<T> {
 
     private final static Logger logger = LoggerFactory.getLogger(Channel.class);
 
-    Set<Consumer> syncConsumers = new ConcurrentSkipListSet<>();
-    Set<Consumer> aSyncConsumers = new ConcurrentSkipListSet<>();
-    Set<Consumer> aSyncSequentialConsumers = new ConcurrentSkipListSet<>();
+    Set<Consumer> syncConsumers = Collections.synchronizedSet(new HashSet<>());
+    Set<Consumer> aSyncConsumers = Collections.synchronizedSet(new HashSet<>());
+    Set<SerialContext> aSyncSequentialConsumers = Collections.synchronizedSet(new HashSet<>());
 
     final Executor executorService;
-
-    final SerialExecutor serialExecutor;
 
     private final EventbusExecutorFactory eventbusExecutorFactory;
 
@@ -36,7 +31,6 @@ public class Channel<T> {
         this.eventbusExecutorFactory = eventbusExecutorFactory;
         this.messageType = messageType;
         executorService = eventbusExecutorFactory.getExecutor();
-        serialExecutor = new SerialExecutor(executorService);
     }
 
     public Class<T> messageType() {
@@ -67,14 +61,14 @@ public class Channel<T> {
      */
     public void post(final T message) {
         // check message type
-        if (!messageType().equals(message.getClass()))
+        if (!messageType().isAssignableFrom(message.getClass()))
             throw new IllegalArgumentException("Invalid message type");
 
         syncConsumers.forEach(c -> processMessage(RegisterType.SYNC, c, message));
 
         aSyncConsumers.forEach(c -> executorService.execute(() -> processMessage(RegisterType.ASYNC, c, message)));
 
-        aSyncSequentialConsumers.forEach(c -> serialExecutor.execute(() -> processMessage(RegisterType.ASYNC_SERIAL, c, message)));
+        aSyncSequentialConsumers.forEach(c -> c.getSerialExecutor().execute(() -> processMessage(RegisterType.ASYNC_SERIAL, c.getConsumer(), message)));
     }
 
     private void processMessage(RegisterType registerType, Consumer c, T message) {
@@ -99,11 +93,30 @@ public class Channel<T> {
     }
 
     private void addAsyncSequential(Consumer<T> consumer) {
-        if (!aSyncSequentialConsumers.contains(consumer)) {
-            aSyncSequentialConsumers.add(consumer);
-        }
+//        if (!aSyncSequentialConsumers.contains(consumer)) {
+        SerialContext<T> serialContext = new SerialContext<>(consumer, new SerialExecutor(executorService));
+        aSyncSequentialConsumers.add(serialContext);
+//        }
     }
 
+    class SerialContext<T> {
+
+        private final Consumer<T> consumer;
+        private final SerialExecutor serialExecutor;
+
+        public SerialContext(Consumer<T> consumer, SerialExecutor serialExecutor) {
+            this.consumer = consumer;
+            this.serialExecutor = serialExecutor;
+        }
+
+        public Consumer<T> getConsumer() {
+            return consumer;
+        }
+
+        public SerialExecutor getSerialExecutor() {
+            return serialExecutor;
+        }
+    }
 
     class SerialExecutor implements Executor {
         final Queue<Runnable> tasks = new ArrayDeque<>();

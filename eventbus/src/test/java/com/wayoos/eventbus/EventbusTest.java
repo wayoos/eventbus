@@ -48,4 +48,12 @@ public class EventbusTest {
         channel.post(23l);
     }
 
+    @Test
+    public void postChannelSubMessageType() throws Exception {
+        Channel channel = eventbus.createChannel("test", Number.class);
+
+        channel.post(23l);
+    }
+
+
 }
