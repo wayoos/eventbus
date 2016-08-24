@@ -1,29 +1,31 @@
-package com.wayoos.eventbus;
+package com.wayoos.messagebus;
+
+import com.wayoos.messagebus.channel.Channel;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 /**
  * Created by steph on 21.08.16.
  */
-public class Eventbus {
+public class Messagebus {
 
     private final EventbusExecutorFactory eventbusExecutorFactory;
 
     private Map<String, Channel> channels = new ConcurrentHashMap<>();
 
-    public Eventbus() {
+
+    public Messagebus() {
         this.eventbusExecutorFactory = () -> Executors.newCachedThreadPool();
     }
 
-    public Eventbus(EventbusExecutorFactory eventbusExecutorFactory) {
+    public Messagebus(EventbusExecutorFactory eventbusExecutorFactory) {
         this.eventbusExecutorFactory = eventbusExecutorFactory;
     }
 
     public <T> Channel<T> createChannel(String alias, Class<T> messageType) {
-        Channel<T> channel = new Channel<T>(eventbusExecutorFactory, messageType);
+        Channel<T> channel = new Channel<T>(eventbusExecutorFactory, messageType, null);
 
         Channel<T> newChannel = channels.putIfAbsent(alias, channel);
         if (newChannel == null) {

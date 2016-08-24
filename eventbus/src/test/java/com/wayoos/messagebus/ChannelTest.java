@@ -1,5 +1,6 @@
-package com.wayoos.eventbus;
+package com.wayoos.messagebus;
 
+import com.wayoos.messagebus.channel.Channel;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -8,7 +9,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
@@ -23,19 +23,19 @@ import static org.junit.Assert.assertEquals;
  */
 public class ChannelTest {
 
-    Eventbus eventbus;
+    Messagebus messagebus;
     ExecutorService executorService;
 
     @Before
     public void beforeTest() {
         executorService = Executors.newCachedThreadPool();
-        eventbus = new Eventbus(() -> executorService);
+        messagebus = new Messagebus(() -> executorService);
     }
 
     @After
     public void afterTest() {
         executorService.shutdown();
-        eventbus = null;
+        messagebus = null;
     }
 
     @Test
@@ -88,7 +88,7 @@ public class ChannelTest {
 
     @Test
     public void perfChannelTest() throws Exception {
-        Channel<String> channel = eventbus.createChannel("perf", String.class);
+        Channel<String> channel = messagebus.createChannel("perf", String.class);
 
         final AtomicLong syncCount = new AtomicLong();
         final AtomicLong asyncCount = new AtomicLong();
@@ -113,7 +113,7 @@ public class ChannelTest {
 
     @Test
     public void perfChannelMultipleSubscriberTest() throws Exception {
-        Channel<String> channel = eventbus.createChannel("perf", String.class);
+        Channel<String> channel = messagebus.createChannel("perf", String.class);
 
         final AtomicLong syncCount = new AtomicLong();
         final AtomicLong asyncCount = new AtomicLong();
@@ -152,7 +152,7 @@ public class ChannelTest {
     }
 
     private void test(RegisterType registerType, List<String> inputMessages, Consumer<String> consumer) {
-        Channel<String> channel = eventbus.createChannel("Test", String.class);
+        Channel<String> channel = messagebus.createChannel("Test", String.class);
 
         channel.register(consumer, registerType);
 

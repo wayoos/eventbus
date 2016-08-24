@@ -1,4 +1,4 @@
-package com.wayoos.eventbus;
+package com.wayoos.messagebus;
 
 /**
  * Created by steph on 21.08.16.

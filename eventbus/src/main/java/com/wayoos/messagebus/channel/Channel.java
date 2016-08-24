@@ -1,13 +1,15 @@
-package com.wayoos.eventbus;
+package com.wayoos.messagebus.channel;
 
+import com.wayoos.messagebus.EventbusExecutorFactory;
+import com.wayoos.messagebus.RegisterType;
+import com.wayoos.messagebus.event.EventType;
+import com.wayoos.messagebus.event.MessagebusEvent;
+import com.wayoos.messagebus.event.MessagebusEventListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 /**
@@ -27,9 +29,14 @@ public class Channel<T> {
 
     private final Class<T> messageType;
 
-    public Channel(EventbusExecutorFactory eventbusExecutorFactory, Class<T> messageType) {
+    private final MessagebusEventListener messagebusEventListener;
+
+    public Channel(EventbusExecutorFactory eventbusExecutorFactory, Class<T> messageType,
+                   MessagebusEventListener messagebusEventListener) {
         this.eventbusExecutorFactory = eventbusExecutorFactory;
         this.messageType = messageType;
+        this.messagebusEventListener = messagebusEventListener;
+
         executorService = eventbusExecutorFactory.getExecutor();
     }
 
@@ -46,7 +53,7 @@ public class Channel<T> {
                 addAsync(consumer);
                 break;
             case ASYNC_SERIAL:
-                addAsyncSequential(consumer);
+                addAsyncSerial(consumer);
                 break;
         }
     }
@@ -64,11 +71,37 @@ public class Channel<T> {
         if (!messageType().isAssignableFrom(message.getClass()))
             throw new IllegalArgumentException("Invalid message type");
 
+
+
         syncConsumers.forEach(c -> processMessage(RegisterType.SYNC, c, message));
 
         aSyncConsumers.forEach(c -> executorService.execute(() -> processMessage(RegisterType.ASYNC, c, message)));
 
         aSyncSequentialConsumers.forEach(c -> c.getSerialExecutor().execute(() -> processMessage(RegisterType.ASYNC_SERIAL, c.getConsumer(), message)));
+    }
+
+    private void sendEvent(Object message, RegisterType registerType, EventType eventType) {
+        messagebusEventListener.onEvent(new MessagebusEvent() {
+            @Override
+            public String getChannelId() {
+                return "id";
+            }
+
+            @Override
+            public Object getMessage() {
+                return message;
+            }
+
+            @Override
+            public RegisterType getRegisterType() {
+                return null;
+            }
+
+            @Override
+            public EventType getEventType() {
+                return eventType;
+            }
+        });
     }
 
     private void processMessage(RegisterType registerType, Consumer c, T message) {
@@ -92,7 +125,7 @@ public class Channel<T> {
         }
     }
 
-    private void addAsyncSequential(Consumer<T> consumer) {
+    private void addAsyncSerial(Consumer<T> consumer) {
 //        if (!aSyncSequentialConsumers.contains(consumer)) {
         SerialContext<T> serialContext = new SerialContext<>(consumer, new SerialExecutor(executorService));
         aSyncSequentialConsumers.add(serialContext);

@@ -1,4 +1,4 @@
-package com.wayoos.eventbus;
+package com.wayoos.messagebus;
 
 import com.google.common.eventbus.AsyncEventBus;
 
