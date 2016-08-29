@@ -23,17 +23,17 @@ public class Channel<T> {
     Set<Consumer> aSyncConsumers = Collections.synchronizedSet(new HashSet<>());
     Set<SerialContext> aSyncSequentialConsumers = Collections.synchronizedSet(new HashSet<>());
 
-    final Executor executorService;
+    private final String alias;
 
-    private final MessagebusExecutorFactory messagebusExecutorFactory;
+    final Executor executorService;
 
     private final Class<T> messageType;
 
     private final MessagebusEventListener messagebusEventListener;
 
-    public Channel(MessagebusExecutorFactory messagebusExecutorFactory, Class<T> messageType,
+    public Channel(String alias, MessagebusExecutorFactory messagebusExecutorFactory, Class<T> messageType,
                    MessagebusEventListener messagebusEventListener) {
-        this.messagebusExecutorFactory = messagebusExecutorFactory;
+        this.alias = alias;
         this.messageType = messageType;
         this.messagebusEventListener = messagebusEventListener;
 
@@ -71,7 +71,7 @@ public class Channel<T> {
         if (!messageType().isAssignableFrom(message.getClass()))
             throw new IllegalArgumentException("Invalid message type");
 
-
+        sendEvent(EventType.POSTED, null, 0);
 
         syncConsumers.forEach(c -> processMessage(RegisterType.SYNC, c, message));
 
@@ -80,16 +80,11 @@ public class Channel<T> {
         aSyncSequentialConsumers.forEach(c -> c.getSerialExecutor().execute(() -> processMessage(RegisterType.ASYNC_SERIAL, c.getConsumer(), message)));
     }
 
-    private void sendEvent(Object message, RegisterType registerType, EventType eventType) {
+    private void sendEvent(EventType eventType, Consumer consumer, long duration) {
         messagebusEventListener.onEvent(new MessagebusEvent() {
             @Override
-            public String getChannelId() {
-                return "id";
-            }
-
-            @Override
-            public Object getMessage() {
-                return message;
+            public String getChannelAlias() {
+                return alias;
             }
 
             @Override
@@ -101,13 +96,26 @@ public class Channel<T> {
             public EventType getEventType() {
                 return eventType;
             }
+
+            @Override
+            public Consumer getConsumer() {
+                return consumer;
+            }
+
+            @Override
+            public long getDuration() {
+                return duration;
+            }
         });
     }
 
     private void processMessage(RegisterType registerType, Consumer c, T message) {
         logger.debug("Before {} message {} is accept by consumer {}", registerType, message, c);
         try {
+            sendEvent(EventType.BEFORE_CONSUME, c, 0);
+            long startTime = System.currentTimeMillis();
             c.accept(message);
+            sendEvent(EventType.AFTER_CONSUME, c, System.currentTimeMillis() - startTime);
         } catch (Throwable e) {
             logger.error("Consumer accept message error.", e);
         }

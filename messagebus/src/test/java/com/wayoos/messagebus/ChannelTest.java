@@ -148,7 +148,7 @@ public class ChannelTest {
 
     private void test(RegisterType registerType, List<String> inputMessages, List<String> processedMessages) {
         test(registerType, inputMessages, s -> processedMessages.add(s));
-        await().atMost(2, SECONDS).until(() -> inputMessages.size() == processedMessages.size());
+        await().atMost(5, SECONDS).until(() -> inputMessages.size() == processedMessages.size());
     }
 
     private void test(RegisterType registerType, List<String> inputMessages, Consumer<String> consumer) {

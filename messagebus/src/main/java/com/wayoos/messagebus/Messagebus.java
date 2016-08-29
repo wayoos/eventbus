@@ -1,6 +1,7 @@
 package com.wayoos.messagebus;
 
 import com.wayoos.messagebus.channel.Channel;
+import com.wayoos.messagebus.event.MessagebusEventListener;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,19 +14,27 @@ public class Messagebus {
 
     private final MessagebusExecutorFactory messagebusExecutorFactory;
 
+    private final MessagebusEventListener messagebusEventListener;
+
     private Map<String, Channel> channels = new ConcurrentHashMap<>();
 
 
     public Messagebus() {
-        this.messagebusExecutorFactory = () -> Executors.newCachedThreadPool();
+        this(() -> Executors.newCachedThreadPool());
     }
 
     public Messagebus(MessagebusExecutorFactory messagebusExecutorFactory) {
-        this.messagebusExecutorFactory = messagebusExecutorFactory;
+        this(messagebusExecutorFactory, event -> {});
     }
 
+    public Messagebus(MessagebusExecutorFactory messagebusExecutorFactory, MessagebusEventListener messagebusEventListener) {
+        this.messagebusExecutorFactory = messagebusExecutorFactory;
+        this.messagebusEventListener = messagebusEventListener;
+    }
+
+
     public <T> Channel<T> createChannel(String alias, Class<T> messageType) {
-        Channel<T> channel = new Channel<T>(messagebusExecutorFactory, messageType, null);
+        Channel<T> channel = new Channel<T>(alias, messagebusExecutorFactory, messageType, messagebusEventListener);
 
         Channel<T> newChannel = channels.putIfAbsent(alias, channel);
         if (newChannel == null) {
