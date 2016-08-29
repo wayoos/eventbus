@@ -11,21 +11,21 @@ import java.util.concurrent.Executors;
  */
 public class Messagebus {
 
-    private final EventbusExecutorFactory eventbusExecutorFactory;
+    private final MessagebusExecutorFactory messagebusExecutorFactory;
 
     private Map<String, Channel> channels = new ConcurrentHashMap<>();
 
 
     public Messagebus() {
-        this.eventbusExecutorFactory = () -> Executors.newCachedThreadPool();
+        this.messagebusExecutorFactory = () -> Executors.newCachedThreadPool();
     }
 
-    public Messagebus(EventbusExecutorFactory eventbusExecutorFactory) {
-        this.eventbusExecutorFactory = eventbusExecutorFactory;
+    public Messagebus(MessagebusExecutorFactory messagebusExecutorFactory) {
+        this.messagebusExecutorFactory = messagebusExecutorFactory;
     }
 
     public <T> Channel<T> createChannel(String alias, Class<T> messageType) {
-        Channel<T> channel = new Channel<T>(eventbusExecutorFactory, messageType, null);
+        Channel<T> channel = new Channel<T>(messagebusExecutorFactory, messageType, null);
 
         Channel<T> newChannel = channels.putIfAbsent(alias, channel);
         if (newChannel == null) {

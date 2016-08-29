@@ -1,6 +1,6 @@
 package com.wayoos.messagebus.channel;
 
-import com.wayoos.messagebus.EventbusExecutorFactory;
+import com.wayoos.messagebus.MessagebusExecutorFactory;
 import com.wayoos.messagebus.RegisterType;
 import com.wayoos.messagebus.event.EventType;
 import com.wayoos.messagebus.event.MessagebusEvent;
@@ -25,19 +25,19 @@ public class Channel<T> {
 
     final Executor executorService;
 
-    private final EventbusExecutorFactory eventbusExecutorFactory;
+    private final MessagebusExecutorFactory messagebusExecutorFactory;
 
     private final Class<T> messageType;
 
     private final MessagebusEventListener messagebusEventListener;
 
-    public Channel(EventbusExecutorFactory eventbusExecutorFactory, Class<T> messageType,
+    public Channel(MessagebusExecutorFactory messagebusExecutorFactory, Class<T> messageType,
                    MessagebusEventListener messagebusEventListener) {
-        this.eventbusExecutorFactory = eventbusExecutorFactory;
+        this.messagebusExecutorFactory = messagebusExecutorFactory;
         this.messageType = messageType;
         this.messagebusEventListener = messagebusEventListener;
 
-        executorService = eventbusExecutorFactory.getExecutor();
+        executorService = messagebusExecutorFactory.getExecutor();
     }
 
     public Class<T> messageType() {
