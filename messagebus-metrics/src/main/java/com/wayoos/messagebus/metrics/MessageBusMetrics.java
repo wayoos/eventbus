@@ -1,10 +1,7 @@
 package com.wayoos.messagebus.metrics;
 
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
-import com.wayoos.messagebus.event.EventType;
-import com.wayoos.messagebus.event.MessagebusEvent;
-import com.wayoos.messagebus.event.MessagebusEventListener;
+import com.wayoos.messagebus.Messagebus;
 
 import java.util.concurrent.TimeUnit;
 
@@ -13,35 +10,46 @@ import static com.codahale.metrics.MetricRegistry.name;
 /**
  * Created by steph on 29.08.16.
  */
-public class MessageBusMetrics implements MessagebusEventListener {
+public class MessageBusMetrics {
 
     private final MetricRegistry metricRegistry;
 
-    public MessageBusMetrics(MetricRegistry metricRegistry) {
+    private static final String METRIC_PREFIX = MessageBusMetrics.class.getPackage().getName();
+
+    private static final String CONSUMED = "consumed";
+
+    private MessageBusMetrics(MetricRegistry metricRegistry) {
         this.metricRegistry = metricRegistry;
     }
 
-    @Override
-    public void onEvent(MessagebusEvent event) {
-        String name = "messagebus."+event.getEventType();
+    public static MessageBusMetrics with(MetricRegistry metricRegistry) {
+        return new MessageBusMetrics(metricRegistry);
+    }
 
-        metricRegistry.counter(name+".counter").inc();
-        metricRegistry.meter(name+".meter").mark();
+    public MessageBusMetrics register(Messagebus messagebus) {
+        messagebus.with(this::onPostedEvent);
+        messagebus.with(this::onConsumedEvent);
+        return this;
+    }
 
-        String aliasName = "messagebus."+event.getChannelAlias();
-        metricRegistry.counter(name("messagebus", event.getChannelAlias(), event.getConsumer()!=null?event.getConsumer().getClass().getSimpleName():null,
-                "counter")).inc();
-        metricRegistry.meter(aliasName+".meter").mark();
+    private void onPostedEvent(String alias) {
+        // Global metrics
+        metricRegistry.meter(name(METRIC_PREFIX, "posted")).mark();
 
-        if (EventType.BEFORE_CONSUME.equals(event.getEventType())) {
-            Timer timer = metricRegistry.timer(name("messagebus", event.getChannelAlias()));
-            timer.time();
-        }
+        // Channel metrics
+        metricRegistry.meter(name(METRIC_PREFIX, alias, "posted")).mark();
+    }
 
-        if (EventType.AFTER_CONSUME.equals(event.getEventType())) {
-            Timer timer = metricRegistry.timer(name("messagebus", event.getChannelAlias()));
-            timer.update(event.getDuration(), TimeUnit.MILLISECONDS);
-        }
+    private void onConsumedEvent(String alias, String consumerAlias, long duration) {
+        // Global metrics
+        metricRegistry.timer(name(METRIC_PREFIX, CONSUMED)).update(duration, TimeUnit.MILLISECONDS);
+
+        // Channel metrics
+        metricRegistry.timer(name(METRIC_PREFIX, alias, CONSUMED)).update(duration, TimeUnit.MILLISECONDS);
+
+        // Channel consumer metrics
+        metricRegistry.timer(name(METRIC_PREFIX, alias, consumerAlias,
+                CONSUMED)).update(duration, TimeUnit.MILLISECONDS);
 
     }
 

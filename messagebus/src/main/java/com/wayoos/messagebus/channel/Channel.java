@@ -2,9 +2,7 @@ package com.wayoos.messagebus.channel;
 
 import com.wayoos.messagebus.MessagebusExecutorFactory;
 import com.wayoos.messagebus.RegisterType;
-import com.wayoos.messagebus.event.EventType;
-import com.wayoos.messagebus.event.MessagebusEvent;
-import com.wayoos.messagebus.event.MessagebusEventListener;
+import com.wayoos.messagebus.event.MessagebusEventListenerRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,13 +27,13 @@ public class Channel<T> {
 
     private final Class<T> messageType;
 
-    private final MessagebusEventListener messagebusEventListener;
+    private final MessagebusEventListenerRegistry messagebusEventListenerRegistry;
 
     public Channel(String alias, MessagebusExecutorFactory messagebusExecutorFactory, Class<T> messageType,
-                   MessagebusEventListener messagebusEventListener) {
+                   MessagebusEventListenerRegistry messagebusEventListenerRegistry) {
         this.alias = alias;
         this.messageType = messageType;
-        this.messagebusEventListener = messagebusEventListener;
+        this.messagebusEventListenerRegistry = messagebusEventListenerRegistry;
 
         executorService = messagebusExecutorFactory.getExecutor();
     }
@@ -71,7 +69,7 @@ public class Channel<T> {
         if (!messageType().isAssignableFrom(message.getClass()))
             throw new IllegalArgumentException("Invalid message type");
 
-        sendEvent(EventType.POSTED, null, 0);
+        messagebusEventListenerRegistry.notifyPostedMessage(alias);
 
         syncConsumers.forEach(c -> processMessage(RegisterType.SYNC, c, message));
 
@@ -80,42 +78,15 @@ public class Channel<T> {
         aSyncSequentialConsumers.forEach(c -> c.getSerialExecutor().execute(() -> processMessage(RegisterType.ASYNC_SERIAL, c.getConsumer(), message)));
     }
 
-    private void sendEvent(EventType eventType, Consumer consumer, long duration) {
-        messagebusEventListener.onEvent(new MessagebusEvent() {
-            @Override
-            public String getChannelAlias() {
-                return alias;
-            }
-
-            @Override
-            public RegisterType getRegisterType() {
-                return null;
-            }
-
-            @Override
-            public EventType getEventType() {
-                return eventType;
-            }
-
-            @Override
-            public Consumer getConsumer() {
-                return consumer;
-            }
-
-            @Override
-            public long getDuration() {
-                return duration;
-            }
-        });
-    }
-
     private void processMessage(RegisterType registerType, Consumer c, T message) {
         logger.debug("Before {} message {} is accept by consumer {}", registerType, message, c);
         try {
-            sendEvent(EventType.BEFORE_CONSUME, c, 0);
             long startTime = System.currentTimeMillis();
-            c.accept(message);
-            sendEvent(EventType.AFTER_CONSUME, c, System.currentTimeMillis() - startTime);
+            try {
+                c.accept(message);
+            } finally {
+                messagebusEventListenerRegistry.notifyConsumedMessage(alias, c.getClass().getSimpleName(), System.currentTimeMillis() - startTime);
+            }
         } catch (Throwable e) {
             logger.error("Consumer accept message error.", e);
         }

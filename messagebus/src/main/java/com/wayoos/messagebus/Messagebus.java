@@ -1,7 +1,9 @@
 package com.wayoos.messagebus;
 
 import com.wayoos.messagebus.channel.Channel;
-import com.wayoos.messagebus.event.MessagebusEventListener;
+import com.wayoos.messagebus.event.MessagebusConsumedEventListener;
+import com.wayoos.messagebus.event.MessagebusEventListenerRegistry;
+import com.wayoos.messagebus.event.MessagebusPostedEventListener;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,7 +16,7 @@ public class Messagebus {
 
     private final MessagebusExecutorFactory messagebusExecutorFactory;
 
-    private final MessagebusEventListener messagebusEventListener;
+    private final MessagebusEventListenerRegistry messagebusEventListenerRegistry = new MessagebusEventListenerRegistry();
 
     private Map<String, Channel> channels = new ConcurrentHashMap<>();
 
@@ -24,17 +26,21 @@ public class Messagebus {
     }
 
     public Messagebus(MessagebusExecutorFactory messagebusExecutorFactory) {
-        this(messagebusExecutorFactory, event -> {});
-    }
-
-    public Messagebus(MessagebusExecutorFactory messagebusExecutorFactory, MessagebusEventListener messagebusEventListener) {
         this.messagebusExecutorFactory = messagebusExecutorFactory;
-        this.messagebusEventListener = messagebusEventListener;
     }
 
+    public Messagebus with(MessagebusPostedEventListener listener) {
+        messagebusEventListenerRegistry.add(listener);
+        return this;
+    }
+
+    public Messagebus with(MessagebusConsumedEventListener listener) {
+        messagebusEventListenerRegistry.add(listener);
+        return this;
+    }
 
     public <T> Channel<T> createChannel(String alias, Class<T> messageType) {
-        Channel<T> channel = new Channel<T>(alias, messagebusExecutorFactory, messageType, messagebusEventListener);
+        Channel<T> channel = new Channel<T>(alias, messagebusExecutorFactory, messageType, messagebusEventListenerRegistry);
 
         Channel<T> newChannel = channels.putIfAbsent(alias, channel);
         if (newChannel == null) {
