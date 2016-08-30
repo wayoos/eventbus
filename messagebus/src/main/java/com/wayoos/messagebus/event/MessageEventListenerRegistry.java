@@ -6,16 +6,16 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * Created by steph on 30.08.16.
  */
-public class MessagebusEventListenerRegistry {
+public class MessageEventListenerRegistry {
 
-    private final List<MessagebusPostedEventListener> postedEventListeners = new CopyOnWriteArrayList<>();
-    private final List<MessagebusConsumedEventListener> consumedEventListeners = new CopyOnWriteArrayList<>();
+    private final List<MessagePostedEventListener> postedEventListeners = new CopyOnWriteArrayList<>();
+    private final List<MessageConsumedEventListener> consumedEventListeners = new CopyOnWriteArrayList<>();
 
-    public void add(MessagebusPostedEventListener listener) {
+    public void add(MessagePostedEventListener listener) {
         postedEventListeners.add(listener);
     }
 
-    public void add(MessagebusConsumedEventListener listener) {
+    public void add(MessageConsumedEventListener listener) {
         consumedEventListeners.add(listener);
     }
 

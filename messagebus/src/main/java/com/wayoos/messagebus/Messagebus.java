@@ -1,9 +1,9 @@
 package com.wayoos.messagebus;
 
 import com.wayoos.messagebus.channel.Channel;
-import com.wayoos.messagebus.event.MessagebusConsumedEventListener;
-import com.wayoos.messagebus.event.MessagebusEventListenerRegistry;
-import com.wayoos.messagebus.event.MessagebusPostedEventListener;
+import com.wayoos.messagebus.event.MessageConsumedEventListener;
+import com.wayoos.messagebus.event.MessageEventListenerRegistry;
+import com.wayoos.messagebus.event.MessagePostedEventListener;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -16,7 +16,7 @@ public class Messagebus {
 
     private final MessagebusExecutorFactory messagebusExecutorFactory;
 
-    private final MessagebusEventListenerRegistry messagebusEventListenerRegistry = new MessagebusEventListenerRegistry();
+    private final MessageEventListenerRegistry messageEventListenerRegistry = new MessageEventListenerRegistry();
 
     private Map<String, Channel> channels = new ConcurrentHashMap<>();
 
@@ -29,18 +29,18 @@ public class Messagebus {
         this.messagebusExecutorFactory = messagebusExecutorFactory;
     }
 
-    public Messagebus with(MessagebusPostedEventListener listener) {
-        messagebusEventListenerRegistry.add(listener);
+    public Messagebus with(MessagePostedEventListener listener) {
+        messageEventListenerRegistry.add(listener);
         return this;
     }
 
-    public Messagebus with(MessagebusConsumedEventListener listener) {
-        messagebusEventListenerRegistry.add(listener);
+    public Messagebus with(MessageConsumedEventListener listener) {
+        messageEventListenerRegistry.add(listener);
         return this;
     }
 
     public <T> Channel<T> createChannel(String alias, Class<T> messageType) {
-        Channel<T> channel = new Channel<T>(alias, messagebusExecutorFactory, messageType, messagebusEventListenerRegistry);
+        Channel<T> channel = new Channel<T>(alias, messagebusExecutorFactory, messageType, messageEventListenerRegistry);
 
         Channel<T> newChannel = channels.putIfAbsent(alias, channel);
         if (newChannel == null) {

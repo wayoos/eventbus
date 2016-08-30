@@ -125,13 +125,6 @@ public class ChannelTest {
         channel.register(m -> asyncCount.incrementAndGet(), RegisterType.ASYNC);
         channel.register(m -> serialCount1.incrementAndGet(), RegisterType.ASYNC_SERIAL);
         channel.register(m -> serialCount2.incrementAndGet(), RegisterType.ASYNC_SERIAL);
-        channel.register(m -> {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }, RegisterType.ASYNC_SERIAL);
 
         // init input test messages
         final long nb = 1000l;

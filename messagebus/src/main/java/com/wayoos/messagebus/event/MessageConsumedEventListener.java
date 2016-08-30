@@ -3,7 +3,7 @@ package com.wayoos.messagebus.event;
 /**
  * Created by steph on 30.08.16.
  */
-public interface MessagebusConsumedEventListener {
+public interface MessageConsumedEventListener {
 
     /**
      * this method is called after a message is consumed by a Consumer.

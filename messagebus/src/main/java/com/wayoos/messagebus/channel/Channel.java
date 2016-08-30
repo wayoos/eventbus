@@ -2,10 +2,12 @@ package com.wayoos.messagebus.channel;
 
 import com.wayoos.messagebus.MessagebusExecutorFactory;
 import com.wayoos.messagebus.RegisterType;
-import com.wayoos.messagebus.event.MessagebusEventListenerRegistry;
+import com.wayoos.messagebus.event.MessageEventListenerRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
@@ -13,7 +15,7 @@ import java.util.function.Consumer;
 /**
  * Created by steph on 21.08.16.
  */
-public class Channel<T> {
+public class Channel<T> implements Closeable {
 
     private final static Logger logger = LoggerFactory.getLogger(Channel.class);
 
@@ -27,13 +29,13 @@ public class Channel<T> {
 
     private final Class<T> messageType;
 
-    private final MessagebusEventListenerRegistry messagebusEventListenerRegistry;
+    private final MessageEventListenerRegistry messageEventListenerRegistry;
 
     public Channel(String alias, MessagebusExecutorFactory messagebusExecutorFactory, Class<T> messageType,
-                   MessagebusEventListenerRegistry messagebusEventListenerRegistry) {
+                   MessageEventListenerRegistry messageEventListenerRegistry) {
         this.alias = alias;
         this.messageType = messageType;
-        this.messagebusEventListenerRegistry = messagebusEventListenerRegistry;
+        this.messageEventListenerRegistry = messageEventListenerRegistry;
 
         executorService = messagebusExecutorFactory.getExecutor();
     }
@@ -69,13 +71,18 @@ public class Channel<T> {
         if (!messageType().isAssignableFrom(message.getClass()))
             throw new IllegalArgumentException("Invalid message type");
 
-        messagebusEventListenerRegistry.notifyPostedMessage(alias);
+        messageEventListenerRegistry.notifyPostedMessage(alias);
 
         syncConsumers.forEach(c -> processMessage(RegisterType.SYNC, c, message));
 
         aSyncConsumers.forEach(c -> executorService.execute(() -> processMessage(RegisterType.ASYNC, c, message)));
 
         aSyncSequentialConsumers.forEach(c -> c.getSerialExecutor().execute(() -> processMessage(RegisterType.ASYNC_SERIAL, c.getConsumer(), message)));
+    }
+
+    @Override
+    public void close() throws IOException {
+
     }
 
     private void processMessage(RegisterType registerType, Consumer c, T message) {
@@ -85,7 +92,7 @@ public class Channel<T> {
             try {
                 c.accept(message);
             } finally {
-                messagebusEventListenerRegistry.notifyConsumedMessage(alias, c.getClass().getSimpleName(), System.currentTimeMillis() - startTime);
+                messageEventListenerRegistry.notifyConsumedMessage(alias, c.getClass().getSimpleName(), System.currentTimeMillis() - startTime);
             }
         } catch (Throwable e) {
             logger.error("Consumer accept message error.", e);
@@ -140,13 +147,11 @@ public class Channel<T> {
         }
 
         public synchronized void execute(final Runnable r) {
-            tasks.offer(new Runnable() {
-                public void run() {
-                    try {
-                        r.run();
-                    } finally {
-                        scheduleNext();
-                    }
+            tasks.offer(() -> {
+                try {
+                    r.run();
+                } finally {
+                    scheduleNext();
                 }
             });
             if (active == null) {
